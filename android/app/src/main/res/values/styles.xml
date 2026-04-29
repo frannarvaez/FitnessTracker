@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.FitnessTracker" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <style name="HealthChartStyle">
+        <item name="layers">line</item>
+        <item name="showStartAxis">true</item>
+        <item name="showBottomAxis">true</item>
+        <item name="scrollEnabled">true</item>
+        <item name="zoomEnabled">true</item>
+    </style>
+</resources>

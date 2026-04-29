@@ -1,0 +1,10 @@
+*.class
+*.log
+*.swp
+.DS_Store
+.idea/
+*.iml
+.gradle/
+.kotlin/
+**/build/
+android/local.properties
