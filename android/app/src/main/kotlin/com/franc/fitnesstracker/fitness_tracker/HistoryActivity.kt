@@ -2,7 +2,9 @@ package com.snabbt.fitnesstracker.fitness_tracker
 
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
@@ -18,10 +20,18 @@ import com.patrykandpatrick.vico.views.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.views.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.views.cartesian.CartesianChartView
 import com.patrykandpatrick.vico.views.cartesian.layer.LineCartesianLayer
+import com.patrykandpatrick.vico.views.cartesian.marker.CartesianMarkerController
+import com.patrykandpatrick.vico.views.cartesian.marker.DefaultCartesianMarker
 import com.patrykandpatrick.vico.views.common.Fill
+import com.patrykandpatrick.vico.views.common.Insets
 import com.patrykandpatrick.vico.views.common.data.ExtraStore
+import com.patrykandpatrick.vico.views.common.component.LineComponent
 import com.patrykandpatrick.vico.views.common.component.ShapeComponent
+import com.patrykandpatrick.vico.views.common.component.TextComponent
+import com.patrykandpatrick.vico.views.common.shape.CorneredShape
+import com.patrykandpatrick.vico.views.common.shape.MarkerCorneredShape
 import com.patrykandpatrick.vico.views.common.shape.Shape
+import com.google.android.material.chip.Chip
 import com.snabbt.fitnesstracker.fitness_tracker.databinding.ActivityHistoryBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,12 +44,7 @@ class HistoryActivity : AppCompatActivity() {
     private val analyzer = HealthHistoryAnalyzer()
     private val combinedChartProducer = CartesianChartModelProducer()
     private val selectedMetrics =
-        linkedSetOf(
-            ComparisonMetric.ACTIVE_CALORIES,
-            ComparisonMetric.EATEN_CALORIES,
-            ComparisonMetric.CALORIE_BALANCE,
-            ComparisonMetric.STEPS,
-        )
+        ComparisonMetric.values().toCollection(linkedSetOf())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,10 +60,15 @@ class HistoryActivity : AppCompatActivity() {
     }
 
     private fun setupMetricControls() {
+        bindMetricChip(binding.bodyFatChip.id, ComparisonMetric.BODY_FAT)
+        bindMetricChip(binding.bmrChip.id, ComparisonMetric.BMR)
         bindMetricChip(binding.activeCaloriesChip.id, ComparisonMetric.ACTIVE_CALORIES)
+        bindMetricChip(binding.totalCaloriesChip.id, ComparisonMetric.TOTAL_CALORIES)
         bindMetricChip(binding.eatenCaloriesChip.id, ComparisonMetric.EATEN_CALORIES)
         bindMetricChip(binding.calorieBalanceChip.id, ComparisonMetric.CALORIE_BALANCE)
         bindMetricChip(binding.stepsChip.id, ComparisonMetric.STEPS)
+        bindMetricChip(binding.sleepChip.id, ComparisonMetric.SLEEP)
+        bindMetricChip(binding.exerciseChip.id, ComparisonMetric.EXERCISE)
         bindMetricChip(binding.proteinChip.id, ComparisonMetric.PROTEIN)
         bindMetricChip(binding.carbsChip.id, ComparisonMetric.CARBS)
         bindMetricChip(binding.fatChip.id, ComparisonMetric.FAT)
@@ -95,10 +105,13 @@ class HistoryActivity : AppCompatActivity() {
             dashboard.combinedChart?.let { chart ->
                 binding.weightChartView.isVisible = true
                 binding.weightChartEmptyText.isVisible = false
+                renderLegend(chart)
                 renderChart(binding.weightChartView, combinedChartProducer, chart)
             } ?: run {
                 binding.weightChartView.isVisible = false
                 binding.weightChartEmptyText.isVisible = true
+                binding.chartLegendChipGroup.removeAllViews()
+                binding.chartLegendChipGroup.isVisible = false
             }
         }.onFailure { error ->
             binding.dataSummaryText.text = error.message ?: "No se pudo cargar el historial."
@@ -108,8 +121,33 @@ class HistoryActivity : AppCompatActivity() {
             binding.comparisonEmptyText.isVisible = true
             binding.weightChartView.isVisible = false
             binding.weightChartEmptyText.isVisible = true
+            binding.chartLegendChipGroup.removeAllViews()
+            binding.chartLegendChipGroup.isVisible = false
             showMessage(error.message ?: "No se pudo cargar el historial.")
         }
+    }
+
+    private fun renderLegend(chart: ChartSeriesSpec) {
+        binding.chartLegendChipGroup.removeAllViews()
+        chart.lines.forEachIndexed { index, line ->
+            binding.chartLegendChipGroup.addView(
+                Chip(this).apply {
+                    text = line.label
+                    isCheckable = false
+                    isClickable = false
+                    isChipIconVisible = true
+                    chipIcon = legendIcon(chartColors[index % chartColors.size])
+                    chipIconTint = null
+                    chipIconSize = dp(10).toFloat()
+                    layoutParams =
+                        ViewGroup.MarginLayoutParams(
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        )
+                },
+            )
+        }
+        binding.chartLegendChipGroup.isVisible = chart.lines.isNotEmpty()
     }
 
     private suspend fun renderChart(
@@ -154,6 +192,8 @@ class HistoryActivity : AppCompatActivity() {
                             },
                         itemPlacer = HorizontalAxis.ItemPlacer.aligned(spacing = { 2 }),
                     ),
+                marker = createMarker(),
+                markerController = CartesianMarkerController.toggleOnTap(),
             )
 
         modelProducer.runTransaction {
@@ -164,6 +204,7 @@ class HistoryActivity : AppCompatActivity() {
             }
             extras { extraStore ->
                 extraStore[labelMapKey] = chart.labelMap
+                extraStore[markerValueMapKey] = chart.markerValueMap
             }
         }
     }
@@ -186,22 +227,92 @@ class HistoryActivity : AppCompatActivity() {
         )
     }
 
+    private fun createMarker(): DefaultCartesianMarker =
+        DefaultCartesianMarker(
+            label =
+                TextComponent(
+                    color = Color.WHITE,
+                    textSizeSp = 12f,
+                    lineCount = MARKER_LINE_COUNT,
+                    padding = Insets(horizontalDp = 8f, verticalDp = 6f),
+                    background =
+                        ShapeComponent(
+                            fill = Fill(Color.rgb(32, 38, 44)),
+                            shape = MarkerCorneredShape(CorneredShape.rounded(8f)),
+                            strokeFill = Fill(Color.argb(48, 255, 255, 255)),
+                            strokeThicknessDp = 1f,
+                        ),
+                ),
+            valueFormatter = markerValueFormatter(),
+            labelPosition = DefaultCartesianMarker.LabelPosition.AroundPoint,
+            indicator = { color ->
+                ShapeComponent(
+                    fill = Fill(Color.WHITE),
+                    shape = CorneredShape.Pill,
+                    strokeFill = Fill(color),
+                    strokeThicknessDp = 2f,
+                )
+            },
+            indicatorSizeDp = 10f,
+            guideline =
+                LineComponent(
+                    fill = Fill(Color.argb(96, 32, 38, 44)),
+                    thicknessDp = 1f,
+                ),
+        )
+
+    private fun markerValueFormatter(): DefaultCartesianMarker.ValueFormatter =
+        DefaultCartesianMarker.ValueFormatter { context, targets ->
+            val x = targets.firstOrNull()?.x?.roundToInt()?.toFloat()
+            if (x == null) {
+                ""
+            } else {
+                val dateLabel = context.model.extraStore[labelMapKey][x].orEmpty()
+                val values = context.model.extraStore[markerValueMapKey][x].orEmpty()
+                buildString {
+                    append(dateLabel)
+                    values.chunked(MARKER_VALUES_PER_LINE).forEach { row ->
+                        append('\n')
+                        append(row.joinToString(separator = "  ") { "${it.label} ${it.value}" })
+                    }
+                }
+            }
+        }
+
+    private fun legendIcon(color: Int): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = dp(2).toFloat()
+            setColor(color)
+            setSize(dp(10), dp(10))
+        }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).roundToInt()
+
     private fun showMessage(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
     private companion object {
         val labelMapKey = ExtraStore.Key<Map<Float, String>>()
+        val markerValueMapKey = ExtraStore.Key<Map<Float, List<ChartMarkerValue>>>()
+        const val MARKER_VALUES_PER_LINE = 2
+        const val MARKER_LINE_COUNT = 8
         val chartColors =
             intArrayOf(
                 Color.rgb(31, 119, 180),
-                Color.rgb(214, 39, 40),
-                Color.rgb(44, 160, 44),
-                Color.rgb(148, 103, 189),
                 Color.rgb(255, 127, 14),
-                Color.rgb(23, 190, 207),
+                Color.rgb(44, 160, 44),
+                Color.rgb(214, 39, 40),
+                Color.rgb(148, 103, 189),
+                Color.rgb(140, 86, 75),
+                Color.rgb(227, 119, 194),
                 Color.rgb(127, 127, 127),
                 Color.rgb(188, 189, 34),
+                Color.rgb(23, 190, 207),
+                Color.rgb(0, 73, 114),
+                Color.rgb(181, 90, 0),
+                Color.rgb(0, 115, 62),
             )
     }
 }

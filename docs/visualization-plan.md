@@ -6,8 +6,11 @@
 - The x-axis range is fixed to the exported daily history.
 - Each series only plots points for days where that metric has data.
 - Weight is always included when available.
-- Toggleable series include active calories burned, calories eaten, burned-minus-eaten difference, steps, protein, carbs, and fat.
-- The Y-axis is a real weight axis in kg, defaulting to 50-100 kg and expanding when weight data falls outside that range.
+- Toggleable series include body fat, BMR, active calories burned, total calories burned, calories eaten, burned-minus-eaten difference, steps, sleep, exercise minutes, protein, carbs, and fat.
+- The chart includes a color legend for every visible line.
+- Tapping a chart day shows a marker badge with the date and raw values for visible series.
+- The Y-axis is a real weight axis in kg when weight is available. It uses the actual exported weight range with adaptive padding instead of forcing 50-100 kg.
+- If no weight exists, the chart uses a normalized 0-100 visual axis so non-weight data can still be inspected.
 - Weight is plotted as raw kg. Calories, steps, and macros are re-scaled visually into the weight-axis range so they can move visibly in the same diagram.
 - Text still shows lightweight exploratory correlations.
 
@@ -25,7 +28,5 @@
 - The chart starts at the latest 14-day window and can be dragged horizontally to inspect older days.
 
 ## Future Additions
-1. Add a marker tooltip with raw values for the touched day.
-2. Add a legend that maps line color to metric name.
-3. Add optional date-range filters.
-4. Add lagged-correlation views for more meaningful weight analysis.
+1. Add optional date-range filters.
+2. Add lagged-correlation views for more meaningful weight analysis.

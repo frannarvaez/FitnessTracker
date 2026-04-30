@@ -274,7 +274,7 @@ class HealthConnectSyncManager(
                 false
             }
         aggregateSleep(client, startDate, endExclusiveDate, builders)
-        aggregateNutrition(client, startDate, endExclusiveDate, builders)
+        readNutrition(client, startInstant, endInstant, builders)
         readWeight(client, startInstant, endInstant, builders)
         readBodyFat(client, startInstant, endInstant, builders)
         readBasalMetabolicRate(client, startInstant, endInstant, builders)
@@ -619,39 +619,29 @@ class HealthConnectSyncManager(
         }
     }
 
-    private suspend fun aggregateNutrition(
+    private suspend fun readNutrition(
         client: HealthConnectClient,
-        startDate: LocalDate,
-        endExclusiveDate: LocalDate,
+        startInstant: Instant,
+        endInstant: Instant,
         builders: Map<LocalDate, DailySnapshotBuilder>,
     ) {
-        val grouped =
-            client.aggregateGroupByPeriod(
-                AggregateGroupByPeriodRequest(
-                    metrics =
-                        setOf(
-                            NutritionRecord.ENERGY_TOTAL,
-                            NutritionRecord.PROTEIN_TOTAL,
-                            NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL,
-                            NutritionRecord.TOTAL_FAT_TOTAL,
-                        ),
-                    timeRangeFilter =
-                        TimeRangeFilter.between(startDate.atStartOfDay(), endExclusiveDate.atStartOfDay()),
-                    timeRangeSlicer = Period.ofDays(1),
-                ),
-            )
-
-        grouped.forEach { bucket ->
-            val date = bucket.startTime.toLocalDate()
+        client.readAllRecords(NutritionRecord::class, startInstant, endInstant).forEach { record ->
+            val date = record.startTime.atZone(zoneId).toLocalDate()
+            val recordNutrition =
+                NutritionSummary(
+                    caloriesKcal = record.energy?.inKilocalories?.roundToInt(),
+                    proteinG = record.protein?.inGrams?.roundToInt(),
+                    carbsG = record.totalCarbohydrate?.inGrams?.roundToInt(),
+                    fatG = record.totalFat?.inGrams?.roundToInt(),
+                )
+            if (!recordNutrition.hasAnyValue()) {
+                return@forEach
+            }
             builders[date]?.apply {
-                nutrition =
-                    NutritionSummary(
-                        caloriesKcal = bucket.result[NutritionRecord.ENERGY_TOTAL]?.inKilocalories?.roundToInt(),
-                        proteinG = bucket.result[NutritionRecord.PROTEIN_TOTAL]?.inGrams?.roundToInt(),
-                        carbsG = bucket.result[NutritionRecord.TOTAL_CARBOHYDRATE_TOTAL]?.inGrams?.roundToInt(),
-                        fatG = bucket.result[NutritionRecord.TOTAL_FAT_TOTAL]?.inGrams?.roundToInt(),
-                    ).takeIf { it.caloriesKcal != null || it.proteinG != null || it.carbsG != null || it.fatG != null }
-                nutritionSources.addAll(bucket.result.dataOrigins.packageNames())
+                nutrition = nutrition?.plus(recordNutrition) ?: recordNutrition
+                record.metadata.dataOrigin.packageName
+                    .takeIf { it.isNotBlank() }
+                    ?.let { nutritionSources += it }
             }
         }
     }
@@ -980,6 +970,24 @@ class HealthConnectSyncManager(
             .filter { it.isNotBlank() }
             .distinct()
             .sorted()
+
+    private fun NutritionSummary.hasAnyValue(): Boolean =
+        caloriesKcal != null || proteinG != null || carbsG != null || fatG != null
+
+    private fun NutritionSummary.plus(other: NutritionSummary): NutritionSummary =
+        NutritionSummary(
+            caloriesKcal = caloriesKcal.plusNullable(other.caloriesKcal),
+            proteinG = proteinG.plusNullable(other.proteinG),
+            carbsG = carbsG.plusNullable(other.carbsG),
+            fatG = fatG.plusNullable(other.fatG),
+        )
+
+    private fun Int?.plusNullable(other: Int?): Int? =
+        when {
+            this == null -> other
+            other == null -> this
+            else -> this + other
+        }
 
     private fun String?.orUnknownSource(): String = this?.takeIf { it.isNotBlank() } ?: "origen_desconocido"
 
