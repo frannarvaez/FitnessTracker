@@ -50,7 +50,7 @@ $env:PATH="$env:JAVA_HOME\bin;$env:PATH"
   - sharing the latest JSON export via Android share sheet
   - viewing a history dashboard with one combined daily chart
   - opening that chart on the latest 14 days with horizontal scrolling
-  - toggling series for active calories, eaten calories, burned-minus-eaten calories, steps, protein, carbs, and fat
+  - toggling series for BMR, activity calories, eaten calories, total-minus-eaten calorie balance, steps, protein, carbs, and fat
   - showing lightweight exploratory correlations inside the app
 
 ## Data Rules

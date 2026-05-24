@@ -332,7 +332,7 @@ class MainActivity : AppCompatActivity() {
             !status.hasCorePermissions ->
                 "Concede los permisos obligatorios de peso, sueno, pasos, nutricion y ejercicio para desbloquear la sincronizacion."
             status.missingCorePermissions.isNotEmpty() ->
-                "Puedes sincronizar ya. Concede los permisos pendientes para completar calorias quemadas y calorias totales."
+                    "Puedes sincronizar ya. Concede los permisos pendientes para completar calorias de actividad y calorias totales."
             status.hasHistoryPermission ->
                 "Tienes acceso historico completo. Puedes revisar el ultimo dato o exportar tantos dias como necesites."
             else ->
@@ -344,7 +344,7 @@ class MainActivity : AppCompatActivity() {
             status == null -> "Primero comprobare el estado de Health Connect para mostrarte solo las acciones utiles."
             !status.isAvailable -> "Esta app necesita que Health Connect este instalado y actualizado."
             !status.hasCorePermissions -> "Solo veras el boton de permisos mientras falten accesos por conceder."
-            status.missingCorePermissions.isNotEmpty() -> "Los datos principales ya funcionan. Puedes conceder los permisos pendientes para completar las calorias quemadas."
+            status.missingCorePermissions.isNotEmpty() -> "Los datos principales ya funcionan. Puedes conceder los permisos pendientes para completar las calorias de actividad."
             status.historyPermissionAvailable && !status.hasHistoryPermission -> "Los permisos principales ya estan concedidos. Puedes pedir acceso historico para sincronizar mas de 30 dias."
             else -> "Los permisos principales ya estan concedidos. Puedes abrir Health Connect para revisarlos cuando quieras."
         }

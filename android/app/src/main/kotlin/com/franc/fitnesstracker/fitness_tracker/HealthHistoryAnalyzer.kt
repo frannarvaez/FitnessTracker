@@ -14,10 +14,10 @@ enum class ComparisonMetric(
 ) {
     BODY_FAT("Grasa corporal", "Grasa %"),
     BMR("BMR", "BMR"),
-    ACTIVE_CALORIES("Calorias quemadas", "Quemadas"),
+    ACTIVE_CALORIES("Calorias de actividad", "Actividad"),
     TOTAL_CALORIES("Calorias totales quemadas", "Total kcal"),
     EATEN_CALORIES("Calorias comidas", "Comidas"),
-    CALORIE_BALANCE("Quemadas - comidas", "Dif kcal"),
+    CALORIE_BALANCE("Balance calorico", "Balance kcal"),
     STEPS("Pasos", "Pasos"),
     SLEEP("Sueno", "Sueno"),
     EXERCISE("Ejercicio", "Ejercicio"),
@@ -41,6 +41,11 @@ enum class ComparisonMetric(
             CARBS -> point.carbsG
             FAT -> point.fatG
         }
+
+    companion object {
+        fun userSelectableValues(): List<ComparisonMetric> =
+            values().filterNot { it == TOTAL_CALORIES }
+    }
 }
 
 data class DailyHealthPoint(
@@ -61,13 +66,25 @@ data class DailyHealthPoint(
 ) {
     val calorieBalanceKcal: Double?
         get() {
-            val burned = burnedCaloriesKcal
-            return if (burned != null && eatenCaloriesKcal != null) {
-                burned - eatenCaloriesKcal
+            val totalBurned = totalBurnedCaloriesKcal
+            return if (totalBurned != null && eatenCaloriesKcal != null) {
+                totalBurned - eatenCaloriesKcal
             } else {
                 null
             }
         }
+
+    val totalBurnedCaloriesKcal: Double?
+        get() =
+            totalCaloriesKcal
+                ?: run {
+                    val activeBurned = burnedCaloriesKcal
+                    if (bmrKcalPerDay != null && activeBurned != null) {
+                        bmrKcalPerDay + activeBurned
+                    } else {
+                        null
+                    }
+                }
 
     val burnedCaloriesKcal: Double?
         get() =
@@ -107,9 +124,21 @@ data class ChartSeriesSpec(
 
 data class HistoryDashboard(
     val dataSummary: String,
+    val calorieBalanceSummaries: List<CalorieBalanceSummary>,
     val combinedSummary: String,
     val combinedChart: ChartSeriesSpec?,
     val correlationSummary: String,
+)
+
+data class CalorieBalanceSummary(
+    val label: String,
+    val valueText: String,
+    val detailText: String,
+    val netKcal: Double?,
+    val burnedKcal: Double?,
+    val eatenKcal: Double?,
+    val completeDays: Int,
+    val expectedDays: Int,
 )
 
 class HealthHistoryAnalyzer {
@@ -128,6 +157,7 @@ class HealthHistoryAnalyzer {
 
         return HistoryDashboard(
             dataSummary = buildDataSummary(points),
+            calorieBalanceSummaries = buildCalorieBalanceSummaries(points),
             combinedSummary = buildCombinedSummary(points, chart),
             combinedChart = chart,
             correlationSummary = buildCorrelationSummary(points, selectedMetrics),
@@ -238,6 +268,59 @@ class HealthHistoryAnalyzer {
         return "${points.size} dias diarios | ${first.format(DateTimeFormatter.ISO_DATE)} a ${last.format(DateTimeFormatter.ISO_DATE)} | vista inicial: ${visibleStart.format(DateTimeFormatter.ISO_DATE)} a ${last.format(DateTimeFormatter.ISO_DATE)}"
     }
 
+    private fun buildCalorieBalanceSummaries(points: List<DailyHealthPoint>): List<CalorieBalanceSummary> =
+        listOf(
+            buildCalorieBalanceSummary(points, CALORIE_BALANCE_WEEK_DAYS, "Ultimos 7 dias"),
+            buildCalorieBalanceSummary(points, CALORIE_BALANCE_MONTH_DAYS, "Ultimos 30 dias"),
+        )
+
+    private fun buildCalorieBalanceSummary(
+        points: List<DailyHealthPoint>,
+        dayCount: Int,
+        label: String,
+    ): CalorieBalanceSummary {
+        val last = points.last().date
+        val start = last.minusDays((dayCount - 1).toLong())
+        val dateRange = "${start.format(DateTimeFormatter.ISO_DATE)} a ${last.format(DateTimeFormatter.ISO_DATE)}"
+        val completeDays =
+            points
+                .filter { point -> !point.date.isBefore(start) && !point.date.isAfter(last) }
+                .mapNotNull { point ->
+                    val burned = point.totalBurnedCaloriesKcal ?: return@mapNotNull null
+                    val eaten = point.eatenCaloriesKcal ?: return@mapNotNull null
+                    CompleteCalorieBalanceDay(burnedKcal = burned, eatenKcal = eaten)
+                }
+
+        if (completeDays.isEmpty()) {
+            return CalorieBalanceSummary(
+                label = label,
+                valueText = "Sin datos completos",
+                detailText = "0/$dayCount dias completos | $dateRange",
+                netKcal = null,
+                burnedKcal = null,
+                eatenKcal = null,
+                completeDays = 0,
+                expectedDays = dayCount,
+            )
+        }
+
+        val burned = completeDays.sumOf { it.burnedKcal }
+        val eaten = completeDays.sumOf { it.eatenKcal }
+        val net = burned - eaten
+        return CalorieBalanceSummary(
+            label = label,
+            valueText = "${formatSignedWhole(net)} kcal",
+            detailText =
+                "Quemadas ${formatWhole(burned)} kcal | Consumidas ${formatWhole(eaten)} kcal\n" +
+                    "${completeDays.size}/$dayCount dias completos | $dateRange",
+            netKcal = net,
+            burnedKcal = burned,
+            eatenKcal = eaten,
+            completeDays = completeDays.size,
+            expectedDays = dayCount,
+        )
+    }
+
     private fun buildCombinedSummary(
         points: List<DailyHealthPoint>,
         chart: ChartSeriesSpec?,
@@ -252,12 +335,12 @@ class HealthHistoryAnalyzer {
             when {
                 points.any { it.activeCaloriesKcal != null } -> ""
                 points.any { it.burnedCaloriesKcal != null } ->
-                    " | quemadas estimadas como calorias totales - BMR"
-                else -> " | faltan calorias quemadas en el historico actual"
+                    " | actividad estimada como calorias totales - BMR"
+                else -> " | faltan calorias de actividad en el historico actual"
             }
         val missingBalance =
             if (points.none { it.calorieBalanceKcal != null }) {
-                " | el balance necesita quemadas y comidas el mismo dia"
+                " | el balance necesita comidas y calorias totales, o BMR + actividad, el mismo dia"
             } else {
                 ""
             }
@@ -501,8 +584,15 @@ class HealthHistoryAnalyzer {
         val usesWeightAxis: Boolean,
     )
 
+    private data class CompleteCalorieBalanceDay(
+        val burnedKcal: Double,
+        val eatenKcal: Double,
+    )
+
     private companion object {
         const val VISIBLE_DAYS = 14
+        const val CALORIE_BALANCE_WEEK_DAYS = 7
+        const val CALORIE_BALANCE_MONTH_DAYS = 30
         const val NORMALIZED_AXIS_MIN = 0.0
         const val NORMALIZED_AXIS_MAX = 100.0
         const val WEIGHT_PADDING_RATIO = 0.12

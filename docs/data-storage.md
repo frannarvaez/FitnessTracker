@@ -16,7 +16,7 @@
 - Days inside the current readable window are replaced by the fresh Health Connect result so corrected or removed records do not stay stale.
 - Previous active/total calorie values are preserved inside the window only when the corresponding optional permission is missing or the optional read fails.
 - Daily snapshots include active calories burned as `activeCaloriesKcal` when Health Connect exposes `ActiveCaloriesBurnedRecord`.
-- Daily snapshots also include total calories burned as `totalCaloriesKcal` when Health Connect exposes `TotalCaloriesBurnedRecord`; this lets the chart estimate active burned calories from `totalCaloriesKcal - bmrKcalPerDay` if active calories are missing.
+- Daily snapshots also include total calories burned as `totalCaloriesKcal` when Health Connect exposes `TotalCaloriesBurnedRecord`; this lets the chart estimate activity calories from `totalCaloriesKcal - bmrKcalPerDay` if active calories are missing and compute `Balance kcal` as total calories minus eaten calories.
 - The private export directory is app external files `Documents/exports`.
 - On Android 10 or newer, a shared copy is also written to `Downloads/FitnessTracker/exports`; Android 9 keeps only the private copy and share-sheet path.
 - Android backup and device-transfer extraction are disabled for app data.

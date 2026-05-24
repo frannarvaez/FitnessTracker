@@ -203,7 +203,7 @@ class HealthConnectSyncManager(
             notes += "Falta READ_ACTIVE_CALORIES_BURNED; las calorias activas no se comprobaron."
         }
         if (!grantedPermissions.contains(totalCaloriesPermission)) {
-            notes += "Falta READ_TOTAL_CALORIES_BURNED; no se pudo usar total-BMR como respaldo de calorias quemadas."
+                notes += "Falta READ_TOTAL_CALORIES_BURNED; no se pudo usar total-BMR como respaldo de calorias de actividad."
         }
 
         return LatestDataResult(

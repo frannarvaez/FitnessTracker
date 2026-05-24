@@ -31,7 +31,9 @@
 - View a metrics and charts dashboard with one combined daily chart.
 - The chart opens on the latest 14 days and can be dragged horizontally.
 - Weight is always included when available.
-- Toggle chart series for body fat, BMR, active calories, total calories, eaten calories, burned-minus-eaten calories, steps, sleep, exercise minutes, protein, carbs, and fat.
+- Toggle chart series for body fat, BMR, activity calories, eaten calories, total-minus-eaten calorie balance, steps, sleep, exercise minutes, protein, carbs, and fat.
+- Keep total calories in JSON and analyzer code for balance/fallback calculations, but do not show it as a graph toggle.
+- Show aggregated burned-minus-consumed calorie balance for the latest 7 and 30 days in the exported history, including complete-day coverage.
 - Show a color legend for every visible chart line.
 - Show a tap marker badge with the touched day and raw values for the visible series.
 - Use a dynamic Y-axis: real kg range when weight exists, otherwise a normalized visual range for non-weight series.

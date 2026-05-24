@@ -44,7 +44,7 @@ class HistoryActivity : AppCompatActivity() {
     private val analyzer = HealthHistoryAnalyzer()
     private val combinedChartProducer = CartesianChartModelProducer()
     private val selectedMetrics =
-        ComparisonMetric.values().toCollection(linkedSetOf())
+        ComparisonMetric.userSelectableValues().toCollection(linkedSetOf())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +63,6 @@ class HistoryActivity : AppCompatActivity() {
         bindMetricChip(binding.bodyFatChip.id, ComparisonMetric.BODY_FAT)
         bindMetricChip(binding.bmrChip.id, ComparisonMetric.BMR)
         bindMetricChip(binding.activeCaloriesChip.id, ComparisonMetric.ACTIVE_CALORIES)
-        bindMetricChip(binding.totalCaloriesChip.id, ComparisonMetric.TOTAL_CALORIES)
         bindMetricChip(binding.eatenCaloriesChip.id, ComparisonMetric.EATEN_CALORIES)
         bindMetricChip(binding.calorieBalanceChip.id, ComparisonMetric.CALORIE_BALANCE)
         bindMetricChip(binding.stepsChip.id, ComparisonMetric.STEPS)
@@ -97,6 +96,7 @@ class HistoryActivity : AppCompatActivity() {
             }
         }.onSuccess { dashboard ->
             binding.dataSummaryText.text = dashboard.dataSummary
+            renderCalorieBalanceSummaries(dashboard.calorieBalanceSummaries)
             binding.weightChartSummaryText.text = dashboard.combinedSummary
             binding.correlationSummaryText.text = dashboard.correlationSummary
             binding.comparisonChartsContainer.removeAllViews()
@@ -115,6 +115,7 @@ class HistoryActivity : AppCompatActivity() {
             }
         }.onFailure { error ->
             binding.dataSummaryText.text = error.message ?: "No se pudo cargar el historial."
+            clearCalorieBalanceSummaries()
             binding.weightChartSummaryText.text = ""
             binding.correlationSummaryText.text = ""
             binding.comparisonChartsContainer.removeAllViews()
@@ -125,6 +126,22 @@ class HistoryActivity : AppCompatActivity() {
             binding.chartLegendChipGroup.isVisible = false
             showMessage(error.message ?: "No se pudo cargar el historial.")
         }
+    }
+
+    private fun renderCalorieBalanceSummaries(summaries: List<CalorieBalanceSummary>) {
+        val week = summaries.getOrNull(0)
+        val month = summaries.getOrNull(1)
+        binding.weekCalorieBalanceValueText.text = week?.valueText.orEmpty()
+        binding.weekCalorieBalanceDetailText.text = week?.detailText.orEmpty()
+        binding.monthCalorieBalanceValueText.text = month?.valueText.orEmpty()
+        binding.monthCalorieBalanceDetailText.text = month?.detailText.orEmpty()
+    }
+
+    private fun clearCalorieBalanceSummaries() {
+        binding.weekCalorieBalanceValueText.text = ""
+        binding.weekCalorieBalanceDetailText.text = ""
+        binding.monthCalorieBalanceValueText.text = ""
+        binding.monthCalorieBalanceDetailText.text = ""
     }
 
     private fun renderLegend(chart: ChartSeriesSpec) {

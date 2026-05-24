@@ -19,7 +19,7 @@ App Android nativa en Kotlin para leer datos de Health Connect y exportarlos a J
 - Incluye una pantalla de graficas con:
   - un grafico diario combinado
   - vista inicial de los ultimos 14 dias con desplazamiento horizontal
-  - peso, calorias quemadas, calorias comidas, diferencia kcal, pasos y macros
+  - peso, BMR, actividad kcal, calorias comidas, balance kcal, pasos y macros
   - correlaciones exploratorias rapidas
 
 ## Donde esta el proyecto Android
